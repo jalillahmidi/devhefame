@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hefame - Gestor de Devoluciones (v2)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.2.0/html5-qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            animation: slideDown 0.6s ease;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 5px;
+            color: #D4AF37;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        header p {
+            font-size: 1.1em;
+            color: #555;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            animation: fadeUp 0.6s ease;
+        }
+
+        .card h2 {
+            color: #D4AF37;
+            margin-bottom: 20px;
+            font-size: 1.4em;
+            border-bottom: 3px solid #FFD700;
+            padding-bottom: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 8px;
+            font-size: 0.95em;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        input[type="file"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #FFD700;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        input[type="date"]:focus,
+        input[type="file"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #D4AF37;
+            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #333;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-danger {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #ff5252;
+        }
+
+        .btn-success {
+            background: #51cf66;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #40c057;
+        }
+
+        #scanner {
+            width: 100%;
+            background: #000;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .scanner-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .product-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .product-table th {
+            background: #FFD700;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #D4AF37;
+        }
+
+        .product-table td {
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .product-table tr:hover {
+            background: #fffacd;
+        }
+
+        .product-row {
+            font-size: 0.9em;
+        }
+
+        .product-row .delete-btn {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.3s;
+        }
+
+        .product-row .delete-btn:hover {
+            background: #ff5252;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            animation: slideDown 0.3s ease;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #51cf66;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #ff6b6b;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #FFD700;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #FFD700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: fadeUp 0.3s ease;
+        }
+
+        .modal-content h3 {
+            color: #D4AF37;
+            margin-bottom: 20px;
+        }
+
+        .modal-content p {
+            color: #666;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+        }
+
+        .checkbox-item input[type="checkbox"],
+        .checkbox-item input[type="radio"] {
+            margin-right: 8px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-item label {
+            margin: 0;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .summary {
+            background: #fffacd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #FFD700;
+        }
+
+        .summary p {
+            margin: 8px 0;
+            color: #555;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .summary strong {
+            color: #D4AF37;
+        }
+
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+        }
+
+        .hint {
+            font-size: 0.85em;
+            color: #999;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .status-loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .pdf-upload {
+            border: 2px dashed #FFD700;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .pdf-upload:hover {
+            background: #fffacd;
+            border-color: #D4AF37;
+        }
+
+        .pdf-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .pdf-status.ok {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .pdf-status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📦 Hefame - Gestor de Devoluciones v2</h1>
+            <p>Escanea datamatrix y rellena el PDF oficial de Héfame</p>
+        </header>
+
+        <div class="main-grid">
+            <!-- PANEL DE ESCANEO -->
+            <div class="card">
+                <h2>Escaneo de Códigos</h2>
+                
+                <div class="form-group">
+                    <label>📄 Cargar PDF de Hefame:</label>
+                    <div class="pdf-upload" onclick="document.getElementById('pdfInput').click()">
+                        <p>Click aquí para cargar tu PDF rellenable de Hefame</p>
+                        <p style="font-size: 0.9em; color: #999;">o arrastra el archivo aquí</p>
+                    </div>
+                    <input type="file" id="pdfInput" accept=".pdf" style="display: none;">
+                    <div id="pdfStatus"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Método de entrada:</label>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="radio" id="scannerMethod" name="inputMethod" value="scanner" checked>
+                            <label for="scannerMethod">🎥 Escanear con cámara</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="radio" id="lectorMethod" name="inputMethod" value="lector">
+                            <label for="lectorMethod">📱 Lector de datamatrix USB</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="radio" id="manualMethod" name="inputMethod" value="manual">
+                            <label for="manualMethod">⌨️ Entrada manual</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="scannerContainer">
+                    <div id="scanner"></div>
+                    <div class="scanner-controls">
+                        <button class="btn-primary" onclick="startScanner()">Iniciar Cámara</button>
+                        <button class="btn-secondary" onclick="stopScanner()">Detener</button>
+                    </div>
+                </div>
+
+                <div id="manualContainer" style="display: none;">
+                    <div class="form-group">
+                        <label>Código Nacional (del datamatrix):</label>
+                        <input type="text" id="codigoNacional" placeholder="Ej: 1234567">
+                    </div>
+                    <div class="form-group">
+                        <label>Lote:</label>
+                        <input type="text" id="loteManual" placeholder="Ej: A12B34">
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha de Caducidad:</label>
+                        <input type="date" id="caducidadManual">
+                    </div>
+                    <button class="btn-primary" onclick="addProductManual()">Añadir Producto</button>
+                </div>
+
+                <div id="alertContainer"></div>
+            </div>
+
+            <!-- PANEL DE FORMULARIO -->
+            <div class="card">
+                <h2>Datos de la Devolución</h2>
+                
+                <div class="form-group">
+                    <label>Tipo de Devolución:</label>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="devCaducidad" name="devType" value="caducidad" checked>
+                            <label for="devCaducidad">Caducidad</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="devInmovilizacion" name="devType" value="inmovilizacion">
+                            <label for="devInmovilizacion">Inmovilización</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="devRetirada" name="devType" value="retirada">
+                            <label for="devRetirada">Retirada</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="devOtro" name="devType" value="otro">
+                            <label for="devOtro">Otro</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="otroMotivo" style="display: none;" class="form-group">
+                    <label>Especificar motivo:</label>
+                    <input type="text" id="motivoEspecifico" placeholder="Indique el motivo">
+                </div>
+
+                <div class="form-group">
+                    <label>Código de la Farmacia:</label>
+                    <input type="text" id="codigoFarmacia" placeholder="Ej: 12345">
+                </div>
+
+                <div class="form-group">
+                    <label>Nombre de la Farmacia:</label>
+                    <input type="text" id="nombreFarmacia" placeholder="Nombre de la farmacia">
+                </div>
+
+                <div class="form-group">
+                    <label>Fecha de la Devolución:</label>
+                    <input type="date" id="fechaDevolucion">
+                </div>
+
+                <div class="form-group">
+                    <label>Departamento / Persona a quien envía:</label>
+                    <input type="text" id="departamento" placeholder="Ej: Departamento Logística">
+                </div>
+
+                <div class="form-group">
+                    <label>Número de referencia:</label>
+                    <input type="text" id="numeroReferencia" placeholder="Número único de referencia">
+                </div>
+
+                <div class="form-group">
+                    <label>Observaciones:</label>
+                    <textarea id="observaciones" rows="3" placeholder="Añade cualquier observación importante"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLA DE PRODUCTOS -->
+        <div class="card">
+            <h2>Productos a Devolver</h2>
+            <div id="productosContainer">
+                <table class="product-table">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th>Unidades</th>
+                            <th>Lote</th>
+                            <th>PVP</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productosTable">
+                        <tr id="emptyRow">
+                            <td colspan="8" style="text-align: center; color: #999; padding: 30px;">
+                                Escanea o añade productos para comenzar
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="summary">
+                <p><strong>Total de productos:</strong> <span id="totalProducts">0</span></p>
+                <p><strong>Total de unidades:</strong> <span id="totalUnidades">0</span></p>
+                <p><strong>Valor Total:</strong> <span id="totalValor">€ 0.00</span></p>
+            </div>
+        </div>
+
+        <!-- BOTONES DE ACCIÓN -->
+        <div class="card">
+            <div class="button-group">
+                <button class="btn-secondary" onclick="limpiarFormulario()">Limpiar Todo</button>
+                <button class="btn-success" onclick="rellenarPDF()">Rellenar y Descargar PDF Hefame</button>
+                <button class="btn-primary" onclick="guardarEnLocal()">Guardar en Local</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h3>Añadir Cantidad</h3>
+            <p>¿Cuántas unidades del producto <strong id="productoModalNombre"></strong> quieres devolver?</p>
+            <div class="form-group">
+                <input type="number" id="cantidadModal" min="1" value="1">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-secondary" onclick="cerrarModal()">Cancelar</button>
+                <button class="btn-primary" onclick="confirmarCantidad()">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let productosArray = [];
+        let html5QrcodeScanner = null;
+        let productoEnPendiente = null;
+        let pdfOriginal = null;
+
+        // Inicializar fecha actual
+        document.getElementById('fechaDevolucion').valueAsDate = new Date();
+
+        // ===== CARGA DE PDF =====
+        document.getElementById('pdfInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                pdfOriginal = arrayBuffer;
+                mostrarAlerta('✅ PDF cargado correctamente', 'success');
+                document.getElementById('pdfStatus').innerHTML = '<div class="pdf-status ok">📄 PDF de Hefame listo para rellenar</div>';
+            } catch (error) {
+                mostrarAlerta('❌ Error al cargar el PDF: ' + error.message, 'error');
+                document.getElementById('pdfStatus').innerHTML = '<div class="pdf-status error">Error al cargar el PDF</div>';
+            }
+        });
+
+        // Drag & drop para PDF
+        document.querySelector('.pdf-upload').addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.currentTarget.style.background = '#fffacd';
+        });
+
+        document.querySelector('.pdf-upload').addEventListener('dragleave', (e) => {
+            e.currentTarget.style.background = '';
+        });
+
+        document.querySelector('.pdf-upload').addEventListener('drop', (e) => {
+            e.preventDefault();
+            const file = e.dataTransfer.files[0];
+            if (file && file.type === 'application/pdf') {
+                document.getElementById('pdfInput').files = e.dataTransfer.files;
+                document.getElementById('pdfInput').dispatchEvent(new Event('change'));
+            } else {
+                mostrarAlerta('❌ Por favor, sube un archivo PDF válido', 'error');
+            }
+        });
+
+        // ===== SOPORTE PARA LECTOR DE DATAMATRIX =====
+        let ultimaLecturaLector = 0;
+        let bufferLector = '';
+
+        document.addEventListener('keydown', (e) => {
+            const ahora = Date.now();
+            
+            if (ahora - ultimaLecturaLector > 2000) {
+                bufferLector = '';
+            }
+            
+            ultimaLecturaLector = ahora;
+
+            if (e.key === 'Enter' && bufferLector.length > 5) {
+                e.preventDefault();
+                procesarLectorDatamatrix(bufferLector);
+                bufferLector = '';
+                return;
+            }
+
+            if (e.key.match(/^[a-zA-Z0-9]$/)) {
+                bufferLector += e.key;
+            }
+        });
+
+        function procesarLectorDatamatrix(codigo) {
+            console.log('📱 Código detectado del lector:', codigo);
+            
+            if (document.getElementById('manualContainer').style.display !== 'none') {
+                document.getElementById('codigoNacional').value = codigo;
+                mostrarAlerta('✅ Código escaneado: ' + codigo, 'success');
+                return;
+            }
+
+            mostrarAlerta('🔍 Buscando en CIMA...', 'info');
+            buscarEnCIMA(codigo.substring(0, 7), codigo);
+        }
+
+        // Cambiar entre métodos de entrada
+        document.querySelectorAll('input[name="inputMethod"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.value === 'manual') {
+                    document.getElementById('scannerContainer').style.display = 'none';
+                    document.getElementById('manualContainer').style.display = 'block';
+                    stopScanner();
+                } else if (e.target.value === 'lector') {
+                    document.getElementById('scannerContainer').style.display = 'none';
+                    document.getElementById('manualContainer').style.display = 'none';
+                    stopScanner();
+                    mostrarAlerta('🔍 Lector activo: apunta al datamatrix', 'info');
+                } else {
+                    document.getElementById('scannerContainer').style.display = 'block';
+                    document.getElementById('manualContainer').style.display = 'none';
+                }
+            });
+        });
+
+        // Tipo de devolución
+        document.getElementById('devOtro').addEventListener('change', (e) => {
+            document.getElementById('otroMotivo').style.display = e.target.checked ? 'block' : 'none';
+        });
+
+        function startScanner() {
+            if (html5QrcodeScanner) return;
+            
+            html5QrcodeScanner = new Html5QrcodeScanner(
+                "scanner",
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                false
+            );
+
+            html5QrcodeScanner.render(
+                (decodedText) => {
+                    mostrarAlerta('Código detectado: ' + decodedText, 'info');
+                    procesarCodigoEscaneado(decodedText);
+                },
+                (error) => {}
+            );
+        }
+
+        function stopScanner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.clear();
+                html5QrcodeScanner = null;
+            }
+        }
+
+        function procesarCodigoEscaneado(codigo) {
+            const codigoNacional = codigo.substring(0, 7);
+            mostrarAlerta('Buscando en CIMA...', 'info');
+            buscarEnCIMA(codigoNacional, codigo);
+        }
+
+        async function buscarEnCIMA(codigoNacional, codigoCompleto) {
+            try {
+                const response = await fetch(`https://cima.aemps.es/cima/rest/medicamento?cn=${codigoNacional}`);
+                const data = await response.json();
+
+                if (data && data.length > 0) {
+                    const medicamento = data[0];
+                    const lote = extraerLote(codigoCompleto);
+                    const caducidad = extraerCaducidad(codigoCompleto);
+
+                    productoEnPendiente = {
+                        codigo: medicamento.cn || codigoNacional,
+                        nombre: medicamento.nombre || 'Producto desconocido',
+                        pvp: medicamento.pvp || 0,
+                        lote: lote,
+                        caducidad: caducidad,
+                        registro: medicamento.nregistro || ''
+                    };
+
+                    abrirModalCantidad(medicamento.nombre);
+                    mostrarAlerta('✅ Producto encontrado: ' + medicamento.nombre, 'success');
+                } else {
+                    mostrarAlerta('⚠️ Producto no encontrado en CIMA (continuaremos con los datos escaneados)', 'error');
+                    
+                    productoEnPendiente = {
+                        codigo: codigoNacional,
+                        nombre: 'Producto sin datos CIMA',
+                        pvp: 0,
+                        lote: extraerLote(codigoCompleto),
+                        caducidad: extraerCaducidad(codigoCompleto)
+                    };
+                    
+                    abrirModalCantidad('Producto sin datos CIMA');
+                }
+            } catch (error) {
+                console.error('Error CIMA:', error);
+                mostrarAlerta('⚠️ Error conectando con CIMA, continuamos sin datos', 'error');
+                
+                productoEnPendiente = {
+                    codigo: codigoNacional,
+                    nombre: 'Producto (datos manuales)',
+                    pvp: 0,
+                    lote: extraerLote(codigoCompleto),
+                    caducidad: extraerCaducidad(codigoCompleto)
+                };
+                
+                abrirModalCantidad('Producto (offline)');
+            }
+        }
+
+        function extraerLote(datamatrix) {
+            const match = datamatrix.match(/L(\w{6})/);
+            return match ? match[1] : '';
+        }
+
+        function extraerCaducidad(datamatrix) {
+            const match = datamatrix.match(/D(\d{6})/);
+            if (match) {
+                const fecha = match[1];
+                return `20${fecha.substring(4,6)}-${fecha.substring(2,4)}-${fecha.substring(0,2)}`;
+            }
+            return '';
+        }
+
+        function abrirModalCantidad(nombreProducto) {
+            document.getElementById('productoModalNombre').textContent = nombreProducto;
+            document.getElementById('cantidadModal').value = '1';
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function cerrarModal() {
+            document.getElementById('modal').style.display = 'none';
+            productoEnPendiente = null;
+        }
+
+        function confirmarCantidad() {
+            if (productoEnPendiente) {
+                const cantidad = parseInt(document.getElementById('cantidadModal').value) || 1;
+                productoEnPendiente.unidades = cantidad;
+                productoEnPendiente.total = cantidad * parseFloat(productoEnPendiente.pvp);
+
+                productosArray.push(productoEnPendiente);
+                actualizarTablaProductos();
+                cerrarModal();
+                mostrarAlerta('Producto añadido correctamente', 'success');
+            }
+        }
+
+        function addProductManual() {
+            const codigo = document.getElementById('codigoNacional').value;
+            const lote = document.getElementById('loteManual').value;
+            const caducidad = document.getElementById('caducidadManual').value;
+
+            if (!codigo) {
+                mostrarAlerta('El código nacional es obligatorio', 'error');
+                return;
+            }
+
+            abrirModalCantidad('Producto Manual');
+            productoEnPendiente = {
+                codigo: codigo,
+                nombre: 'Producto Manual',
+                pvp: 0,
+                lote: lote,
+                caducidad: caducidad
+            };
+        }
+
+        function actualizarTablaProductos() {
+            const tbody = document.getElementById('productosTable');
+            const emptyRow = document.getElementById('emptyRow');
+
+            if (productosArray.length === 0) {
+                emptyRow.style.display = 'table-row';
+                return;
+            }
+
+            emptyRow.style.display = 'none';
+            tbody.innerHTML = productosArray.map((prod, idx) => `
+                <tr class="product-row">
+                    <td>${prod.codigo}</td>
+                    <td>${prod.nombre}</td>
+                    <td>${prod.unidades || 0}</td>
+                    <td>${prod.lote}</td>
+                    <td>€ ${parseFloat(prod.pvp).toFixed(2)}</td>
+                    <td>€ ${(prod.total || 0).toFixed(2)}</td>
+                    <td><span class="status-badge status-success">Listo</span></td>
+                    <td><button class="delete-btn" onclick="deleteProducto(${idx})">Eliminar</button></td>
+                </tr>
+            `).join('');
+
+            actualizarResumen();
+        }
+
+        function deleteProducto(idx) {
+            productosArray.splice(idx, 1);
+            actualizarTablaProductos();
+            mostrarAlerta('Producto eliminado', 'info');
+        }
+
+        function actualizarResumen() {
+            const totalProducts = productosArray.length;
+            const totalUnidades = productosArray.reduce((sum, p) => sum + (p.unidades || 0), 0);
+            const totalValor = productosArray.reduce((sum, p) => sum + (p.total || 0), 0);
+
+            document.getElementById('totalProducts').textContent = totalProducts;
+            document.getElementById('totalUnidades').textContent = totalUnidades;
+            document.getElementById('totalValor').textContent = '€ ' + totalValor.toFixed(2);
+        }
+
+        function mostrarAlerta(mensaje, tipo) {
+            const container = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${tipo}`;
+            alert.textContent = mensaje;
+            container.innerHTML = '';
+            container.appendChild(alert);
+
+            setTimeout(() => alert.remove(), 5000);
+        }
+
+        async function rellenarPDF() {
+            if (!pdfOriginal) {
+                mostrarAlerta('❌ Por favor, carga el PDF de Hefame primero', 'error');
+                return;
+            }
+
+            if (productosArray.length === 0) {
+                mostrarAlerta('❌ Añade productos antes de rellenar el PDF', 'error');
+                return;
+            }
+
+            try {
+                const { PDFDocument } = PDFLib;
+                const pdfDoc = await PDFDocument.load(pdfOriginal);
+                const form = pdfDoc.getForm();
+
+                // Rellenar campos de farmacia
+                const codigoFarmaciaField = form.getTextField('Código de la Farmacia');
+                if (codigoFarmaciaField) {
+                    codigoFarmaciaField.setText(document.getElementById('codigoFarmacia').value);
+                }
+
+                const nombreFarmaciaField = form.getTextField('Nombre');
+                if (nombreFarmaciaField) {
+                    nombreFarmaciaField.setText(document.getElementById('nombreFarmacia').value);
+                }
+
+                const fechaDevolucionField = form.getTextField('Fecha de la Devolución');
+                if (fechaDevolucionField) {
+                    fechaDevolucionField.setText(document.getElementById('fechaDevolucion').value);
+                }
+
+                const departamentoField = form.getTextField('Indíquenos Departamento / Persona a quien envía la mercancía');
+                if (departamentoField) {
+                    departamentoField.setText(document.getElementById('departamento').value);
+                }
+
+                const referenciaField = form.getTextField('Indíquenos un número de referencia de su devolución');
+                if (referenciaField) {
+                    referenciaField.setText(document.getElementById('numeroReferencia').value);
+                }
+
+                const observacionesField = form.getTextField('Observaciones');
+                if (observacionesField) {
+                    observacionesField.setText(document.getElementById('observaciones').value);
+                }
+
+                // Rellenar tipo de devolución (checkboxes)
+                if (document.getElementById('devCaducidad').checked) {
+                    const caducidadCheck = form.getCheckBox('Caducidad');
+                    if (caducidadCheck) caducidadCheck.check();
+                }
+
+                if (document.getElementById('devInmovilizacion').checked) {
+                    const inmovilizacionCheck = form.getCheckBox('Inmovilización');
+                    if (inmovilizacionCheck) inmovilizacionCheck.check();
+                }
+
+                if (document.getElementById('devRetirada').checked) {
+                    const retiradaCheck = form.getCheckBox('Retirada');
+                    if (retiradaCheck) retiradaCheck.check();
+                }
+
+                // Rellenar productos (en los campos de la tabla)
+                productosArray.forEach((prod, idx) => {
+                    try {
+                        const codigoField = form.getTextField(`Código${idx}`);
+                        if (codigoField) codigoField.setText(prod.codigo);
+
+                        const nombreField = form.getTextField(`Nombre${idx}`);
+                        if (nombreField) nombreField.setText(prod.nombre);
+
+                        const unidadesField = form.getTextField(`Unidades${idx}`);
+                        if (unidadesField) unidadesField.setText(prod.unidades.toString());
+
+                        const loteField = form.getTextField(`Lote${idx}`);
+                        if (loteField) loteField.setText(prod.lote);
+
+                        const pvpField = form.getTextField(`PVP${idx}`);
+                        if (pvpField) pvpField.setText(parseFloat(prod.pvp).toFixed(2));
+
+                        const totalField = form.getTextField(`Total${idx}`);
+                        if (totalField) totalField.setText((prod.total).toFixed(2));
+                    } catch (e) {
+                        // Campo no existe, continuar
+                    }
+                });
+
+                // Guardar el PDF
+                const pdfBytes = await pdfDoc.save();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `Devolucion_Hefame_${document.getElementById('numeroReferencia').value || 'sin-ref'}_${new Date().getTime()}.pdf`;
+                link.click();
+
+                mostrarAlerta('✅ PDF generado y descargado correctamente', 'success');
+            } catch (error) {
+                console.error('Error rellenando PDF:', error);
+                mostrarAlerta('❌ Error al rellenar el PDF: ' + error.message, 'error');
+            }
+        }
+
+        function limpiarFormulario() {
+            if (confirm('¿Estás seguro de que quieres limpiar todo?')) {
+                productosArray = [];
+                actualizarTablaProductos();
+                document.getElementById('codigoNacional').value = '';
+                document.getElementById('loteManual').value = '';
+                document.getElementById('caducidadManual').value = '';
+                document.getElementById('alertContainer').innerHTML = '';
+                mostrarAlerta('Formulario limpiado', 'success');
+            }
+        }
+
+        function guardarEnLocal() {
+            const datos = {
+                productos: productosArray,
+                farmacia: {
+                    codigo: document.getElementById('codigoFarmacia').value,
+                    nombre: document.getElementById('nombreFarmacia').value
+                },
+                devolucion: {
+                    fecha: document.getElementById('fechaDevolucion').value,
+                    departamento: document.getElementById('departamento').value,
+                    referencia: document.getElementById('numeroReferencia').value,
+                    observaciones: document.getElementById('observaciones').value
+                }
+            };
+
+            localStorage.setItem('hefameData', JSON.stringify(datos));
+            mostrarAlerta('Datos guardados en local', 'success');
+        }
+
+        // Cargar datos guardados al iniciar
+        window.addEventListener('load', () => {
+            const datos = localStorage.getItem('hefameData');
+            if (datos) {
+                const { productos, farmacia, devolucion } = JSON.parse(datos);
+                productosArray = productos;
+                document.getElementById('codigoFarmacia').value = farmacia.codigo;
+                document.getElementById('nombreFarmacia').value = farmacia.nombre;
+                document.getElementById('fechaDevolucion').value = devolucion.fecha;
+                document.getElementById('departamento').value = devolucion.departamento;
+                document.getElementById('numeroReferencia').value = devolucion.referencia;
+                document.getElementById('observaciones').value = devolucion.observaciones;
+                actualizarTablaProductos();
+            }
+        });
+    </script>
+</body>
+</html>
