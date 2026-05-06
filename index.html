@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hefame - Gestor de Devoluciones (v2)</title>
-    <script src="https://unpkg.com/@zxing/library@0.21.0/umd/index.min.js"></script>
+    <script src="https://unpkg.com/@zxing/library@0.21.0"></script>
+    <script src="https://unpkg.com/@zxing/browser@0.1.5"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
         * {
@@ -744,6 +745,7 @@
     <script>
         let productosArray = [];
         let zxingReader = null;
+        let zxingControls = null;
         let productoEnPendiente = null;
         let pdfOriginal = null;
         let lectorActivo = false;
@@ -909,7 +911,7 @@
             document.getElementById('otroMotivo').style.display = e.target.checked ? 'block' : 'none';
         });
 
-        function startScanner() {
+        async function startScanner() {
             if (zxingReader) return;
 
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -917,41 +919,51 @@
                 return;
             }
 
-            const hints = new Map();
-            const formats = [
-                ZXing.BarcodeFormat.DATA_MATRIX,
-                ZXing.BarcodeFormat.QR_CODE,
-                ZXing.BarcodeFormat.CODE_128,
-                ZXing.BarcodeFormat.CODE_39,
-                ZXing.BarcodeFormat.EAN_13,
-                ZXing.BarcodeFormat.EAN_8,
-                ZXing.BarcodeFormat.PDF_417
-            ];
-            hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-            hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+            if (typeof ZXingBrowser === 'undefined' || !ZXingBrowser.BrowserMultiFormatReader) {
+                mostrarAlerta('❌ Librería ZXing no cargada. Recarga la página.', 'error');
+                return;
+            }
 
-            zxingReader = new ZXing.BrowserMultiFormatReader(hints);
-            const videoEl = document.getElementById('scanner');
-            videoEl.style.display = 'block';
+            try {
+                const hints = new Map();
+                const formats = [
+                    ZXing.BarcodeFormat.DATA_MATRIX,
+                    ZXing.BarcodeFormat.QR_CODE,
+                    ZXing.BarcodeFormat.CODE_128,
+                    ZXing.BarcodeFormat.CODE_39,
+                    ZXing.BarcodeFormat.EAN_13,
+                    ZXing.BarcodeFormat.EAN_8,
+                    ZXing.BarcodeFormat.PDF_417
+                ];
+                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+                hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
 
-            zxingReader.decodeFromConstraints(
-                { video: { facingMode: 'environment' } },
-                videoEl,
-                (result, err) => {
-                    if (result) {
-                        const texto = result.getText();
-                        const ahora = Date.now();
-                        // Debounce: ignora mismo código en menos de 2s
-                        if (texto === ultimoCodigoEscaneado && ahora - ultimoEscaneadoTime < 2000) {
-                            return;
+                zxingReader = new ZXingBrowser.BrowserMultiFormatReader(hints);
+                const videoEl = document.getElementById('scanner');
+                videoEl.style.display = 'block';
+
+                mostrarAlerta('🎥 Iniciando cámara...', 'info');
+
+                zxingControls = await zxingReader.decodeFromConstraints(
+                    { video: { facingMode: 'environment' } },
+                    videoEl,
+                    (result, err) => {
+                        if (result) {
+                            const texto = result.getText();
+                            const ahora = Date.now();
+                            if (texto === ultimoCodigoEscaneado && ahora - ultimoEscaneadoTime < 2000) {
+                                return;
+                            }
+                            ultimoCodigoEscaneado = texto;
+                            ultimoEscaneadoTime = ahora;
+                            mostrarAlerta('Código detectado: ' + texto, 'info');
+                            procesarCodigoEscaneado(texto);
                         }
-                        ultimoCodigoEscaneado = texto;
-                        ultimoEscaneadoTime = ahora;
-                        mostrarAlerta('Código detectado: ' + texto, 'info');
-                        procesarCodigoEscaneado(texto);
                     }
-                }
-            ).catch(err => {
+                );
+
+                mostrarAlerta('✅ Cámara activa. Apunta al datamatrix.', 'success');
+            } catch (err) {
                 let msg = '❌ Error cámara: ' + (err.message || err.name);
                 if (err.name === 'NotAllowedError') {
                     msg = '❌ Permiso denegado. Ajustes → Safari/Chrome → Cámara → Permitir.';
@@ -962,15 +974,25 @@
                 }
                 mostrarAlerta(msg, 'error');
                 zxingReader = null;
-            });
+                zxingControls = null;
+            }
         }
 
         function stopScanner() {
+            if (zxingControls) {
+                zxingControls.stop();
+                zxingControls = null;
+            }
             if (zxingReader) {
-                zxingReader.reset();
                 zxingReader = null;
-                const videoEl = document.getElementById('scanner');
-                if (videoEl) videoEl.style.display = 'none';
+            }
+            const videoEl = document.getElementById('scanner');
+            if (videoEl) {
+                videoEl.style.display = 'none';
+                if (videoEl.srcObject) {
+                    videoEl.srcObject.getTracks().forEach(t => t.stop());
+                    videoEl.srcObject = null;
+                }
             }
         }
 
