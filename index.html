@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hefame - Gestor de Devoluciones (v2)</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.2.0/html5-qrcode.min.js"></script>
+    <script src="https://unpkg.com/@zxing/library@0.21.0/umd/index.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
         * {
@@ -576,7 +576,7 @@
                 </div>
 
                 <div id="scannerContainer">
-                    <div id="scanner"></div>
+                    <video id="scanner" playsinline muted></video>
                     <div class="scanner-controls">
                         <button class="btn-primary" onclick="startScanner()">Iniciar Cámara</button>
                         <button class="btn-secondary" onclick="stopScanner()">Detener</button>
@@ -743,11 +743,13 @@
 
     <script>
         let productosArray = [];
-        let html5QrcodeScanner = null;
+        let zxingReader = null;
         let productoEnPendiente = null;
         let pdfOriginal = null;
         let lectorActivo = false;
         let codigosLector = [];
+        let ultimoCodigoEscaneado = '';
+        let ultimoEscaneadoTime = 0;
 
         // Inicializar fecha actual
         document.getElementById('fechaDevolucion').valueAsDate = new Date();
@@ -908,47 +910,67 @@
         });
 
         function startScanner() {
-            if (html5QrcodeScanner) return;
+            if (zxingReader) return;
 
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 mostrarAlerta('❌ Tu navegador no soporta cámara. Usa Safari en iOS.', 'error');
                 return;
             }
 
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-                .then(stream => {
-                    stream.getTracks().forEach(t => t.stop());
-                    document.getElementById('scanner').style.display = 'block';
-                    html5QrcodeScanner = new Html5QrcodeScanner(
-                        "scanner",
-                        { fps: 10, qrbox: { width: 250, height: 250 } },
-                        false
-                    );
-                    html5QrcodeScanner.render(
-                        (decodedText) => {
-                            mostrarAlerta('Código detectado: ' + decodedText, 'info');
-                            procesarCodigoEscaneado(decodedText);
-                        },
-                        (error) => {}
-                    );
-                })
-                .catch(err => {
-                    let msg = '❌ Permiso cámara denegado: ' + err.message;
-                    if (err.name === 'NotAllowedError') {
-                        msg = '❌ Permiso denegado. Ajustes → Chrome/Safari → Cámara → Permitir.';
-                    } else if (err.name === 'NotFoundError') {
-                        msg = '❌ No se detectó cámara en el dispositivo.';
-                    } else if (err.name === 'NotReadableError') {
-                        msg = '❌ Cámara en uso por otra app.';
+            const hints = new Map();
+            const formats = [
+                ZXing.BarcodeFormat.DATA_MATRIX,
+                ZXing.BarcodeFormat.QR_CODE,
+                ZXing.BarcodeFormat.CODE_128,
+                ZXing.BarcodeFormat.CODE_39,
+                ZXing.BarcodeFormat.EAN_13,
+                ZXing.BarcodeFormat.EAN_8,
+                ZXing.BarcodeFormat.PDF_417
+            ];
+            hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+            hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+
+            zxingReader = new ZXing.BrowserMultiFormatReader(hints);
+            const videoEl = document.getElementById('scanner');
+            videoEl.style.display = 'block';
+
+            zxingReader.decodeFromConstraints(
+                { video: { facingMode: 'environment' } },
+                videoEl,
+                (result, err) => {
+                    if (result) {
+                        const texto = result.getText();
+                        const ahora = Date.now();
+                        // Debounce: ignora mismo código en menos de 2s
+                        if (texto === ultimoCodigoEscaneado && ahora - ultimoEscaneadoTime < 2000) {
+                            return;
+                        }
+                        ultimoCodigoEscaneado = texto;
+                        ultimoEscaneadoTime = ahora;
+                        mostrarAlerta('Código detectado: ' + texto, 'info');
+                        procesarCodigoEscaneado(texto);
                     }
-                    mostrarAlerta(msg, 'error');
-                });
+                }
+            ).catch(err => {
+                let msg = '❌ Error cámara: ' + (err.message || err.name);
+                if (err.name === 'NotAllowedError') {
+                    msg = '❌ Permiso denegado. Ajustes → Safari/Chrome → Cámara → Permitir.';
+                } else if (err.name === 'NotFoundError') {
+                    msg = '❌ No se detectó cámara.';
+                } else if (err.name === 'NotReadableError') {
+                    msg = '❌ Cámara en uso por otra app.';
+                }
+                mostrarAlerta(msg, 'error');
+                zxingReader = null;
+            });
         }
 
         function stopScanner() {
-            if (html5QrcodeScanner) {
-                html5QrcodeScanner.clear();
-                html5QrcodeScanner = null;
+            if (zxingReader) {
+                zxingReader.reset();
+                zxingReader = null;
+                const videoEl = document.getElementById('scanner');
+                if (videoEl) videoEl.style.display = 'none';
             }
         }
 
