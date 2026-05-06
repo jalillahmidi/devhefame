@@ -909,20 +909,40 @@
 
         function startScanner() {
             if (html5QrcodeScanner) return;
-            
-            html5QrcodeScanner = new Html5QrcodeScanner(
-                "scanner",
-                { fps: 10, qrbox: { width: 250, height: 250 } },
-                false
-            );
 
-            html5QrcodeScanner.render(
-                (decodedText) => {
-                    mostrarAlerta('Código detectado: ' + decodedText, 'info');
-                    procesarCodigoEscaneado(decodedText);
-                },
-                (error) => {}
-            );
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                mostrarAlerta('❌ Tu navegador no soporta cámara. Usa Safari en iOS.', 'error');
+                return;
+            }
+
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                .then(stream => {
+                    stream.getTracks().forEach(t => t.stop());
+                    document.getElementById('scanner').style.display = 'block';
+                    html5QrcodeScanner = new Html5QrcodeScanner(
+                        "scanner",
+                        { fps: 10, qrbox: { width: 250, height: 250 } },
+                        false
+                    );
+                    html5QrcodeScanner.render(
+                        (decodedText) => {
+                            mostrarAlerta('Código detectado: ' + decodedText, 'info');
+                            procesarCodigoEscaneado(decodedText);
+                        },
+                        (error) => {}
+                    );
+                })
+                .catch(err => {
+                    let msg = '❌ Permiso cámara denegado: ' + err.message;
+                    if (err.name === 'NotAllowedError') {
+                        msg = '❌ Permiso denegado. Ajustes → Chrome/Safari → Cámara → Permitir.';
+                    } else if (err.name === 'NotFoundError') {
+                        msg = '❌ No se detectó cámara en el dispositivo.';
+                    } else if (err.name === 'NotReadableError') {
+                        msg = '❌ Cámara en uso por otra app.';
+                    }
+                    mostrarAlerta(msg, 'error');
+                });
         }
 
         function stopScanner() {
