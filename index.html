@@ -396,6 +396,98 @@
             font-weight: 600;
         }
 
+        #lectorContainer {
+            display: none;
+            background: #f9f9f9;
+            border: 2px solid #FFD700;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        #lectorContainer.active {
+            border: 3px solid #51cf66;
+            background: #f0fdf4;
+        }
+
+        .lector-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .lector-status .indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #999;
+            animation: none;
+        }
+
+        .lector-status.ready .indicator {
+            background: #51cf66;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .lector-input-wrapper {
+            margin-bottom: 15px;
+        }
+
+        #lectorInput {
+            font-size: 1.1em;
+            padding: 15px;
+            border: 2px solid #FFD700;
+            background: white;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        #lectorInput:focus {
+            border-color: #D4AF37;
+            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
+        }
+
+        .lector-codes-list {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .lector-code-item {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+
+        .lector-code-item:last-child {
+            border-bottom: none;
+        }
+
+        .lector-code-item:hover {
+            background: #fffacd;
+        }
+
+        .lector-code-status {
+            font-size: 0.8em;
+            color: #666;
+        }
+
         .status-loading {
             background: #fff3cd;
             color: #856404;
@@ -488,6 +580,24 @@
                     <div class="scanner-controls">
                         <button class="btn-primary" onclick="startScanner()">Iniciar Cámara</button>
                         <button class="btn-secondary" onclick="stopScanner()">Detener</button>
+                    </div>
+                </div>
+
+                <div id="lectorContainer">
+                    <div class="lector-status">
+                        <div class="indicator"></div>
+                        <span id="lectorStatusText">Esperando lector...</span>
+                    </div>
+
+                    <div class="lector-input-wrapper">
+                        <input type="text" id="lectorInput" placeholder="El código escaneado aparecerá aquí" readonly>
+                    </div>
+
+                    <label>Códigos escaneados:</label>
+                    <div class="lector-codes-list" id="lectorCodesList">
+                        <div style="padding: 15px; text-align: center; color: #999;">
+                            Sin códigos escaneados aún
+                        </div>
                     </div>
                 </div>
 
@@ -636,6 +746,8 @@
         let html5QrcodeScanner = null;
         let productoEnPendiente = null;
         let pdfOriginal = null;
+        let lectorActivo = false;
+        let codigosLector = [];
 
         // Inicializar fecha actual
         document.getElementById('fechaDevolucion').valueAsDate = new Date();
@@ -704,7 +816,25 @@
 
         function procesarLectorDatamatrix(codigo) {
             console.log('📱 Código detectado del lector:', codigo);
-            
+
+            if (lectorActivo) {
+                // Añadir a lista de lector
+                codigosLector.push({
+                    codigo: codigo,
+                    timestamp: new Date().toLocaleTimeString('es-ES'),
+                    procesado: false
+                });
+                actualizarListaLector();
+                document.getElementById('lectorInput').value = codigo;
+                mostrarAlerta('✅ Código capturado: ' + codigo, 'success');
+
+                // Procesar en CIMA
+                setTimeout(() => {
+                    buscarEnCIMA(codigo.substring(0, 7), codigo);
+                }, 300);
+                return;
+            }
+
             if (document.getElementById('manualContainer').style.display !== 'none') {
                 document.getElementById('codigoNacional').value = codigo;
                 mostrarAlerta('✅ Código escaneado: ' + codigo, 'success');
@@ -715,21 +845,59 @@
             buscarEnCIMA(codigo.substring(0, 7), codigo);
         }
 
+        function actualizarListaLector() {
+            const lista = document.getElementById('lectorCodesList');
+
+            if (codigosLector.length === 0) {
+                lista.innerHTML = '<div style="padding: 15px; text-align: center; color: #999;">Sin códigos escaneados aún</div>';
+                return;
+            }
+
+            lista.innerHTML = codigosLector.map((item, idx) => `
+                <div class="lector-code-item">
+                    <span>${item.codigo}</span>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <span class="lector-code-status">${item.timestamp}</span>
+                        <button class="delete-btn" style="padding: 4px 8px; font-size: 0.8em;" onclick="eliminarDelLector(${idx})">×</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function eliminarDelLector(idx) {
+            codigosLector.splice(idx, 1);
+            actualizarListaLector();
+            if (codigosLector.length === 0) {
+                document.getElementById('lectorInput').value = '';
+            }
+        }
+
         // Cambiar entre métodos de entrada
         document.querySelectorAll('input[name="inputMethod"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 if (e.target.value === 'manual') {
                     document.getElementById('scannerContainer').style.display = 'none';
+                    document.getElementById('lectorContainer').style.display = 'none';
                     document.getElementById('manualContainer').style.display = 'block';
+                    lectorActivo = false;
                     stopScanner();
                 } else if (e.target.value === 'lector') {
                     document.getElementById('scannerContainer').style.display = 'none';
                     document.getElementById('manualContainer').style.display = 'none';
+                    document.getElementById('lectorContainer').style.display = 'block';
+                    document.getElementById('lectorContainer').classList.add('active');
+                    document.querySelector('.lector-status').classList.add('ready');
+                    document.getElementById('lectorStatusText').textContent = '✅ Lector listo - apunta al datamatrix';
+                    lectorActivo = true;
+                    codigosLector = [];
+                    actualizarListaLector();
                     stopScanner();
-                    mostrarAlerta('🔍 Lector activo: apunta al datamatrix', 'info');
+                    mostrarAlerta('🔍 Lector activado. Apunta los códigos datamatrix', 'info');
                 } else {
                     document.getElementById('scannerContainer').style.display = 'block';
+                    document.getElementById('lectorContainer').style.display = 'none';
                     document.getElementById('manualContainer').style.display = 'none';
+                    lectorActivo = false;
                 }
             });
         });
