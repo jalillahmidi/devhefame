@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hefame - Gestor de Devoluciones (v2)</title>
-    <script src="https://unpkg.com/@zxing/library@0.21.0"></script>
-    <script src="https://unpkg.com/@zxing/browser@0.1.5"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
         * {
@@ -562,25 +560,13 @@
                     <label>Método de entrada:</label>
                     <div class="checkbox-group">
                         <div class="checkbox-item">
-                            <input type="radio" id="scannerMethod" name="inputMethod" value="scanner" checked>
-                            <label for="scannerMethod">🎥 Escanear con cámara</label>
-                        </div>
-                        <div class="checkbox-item">
-                            <input type="radio" id="lectorMethod" name="inputMethod" value="lector">
+                            <input type="radio" id="lectorMethod" name="inputMethod" value="lector" checked>
                             <label for="lectorMethod">📱 Lector de datamatrix USB</label>
                         </div>
                         <div class="checkbox-item">
                             <input type="radio" id="manualMethod" name="inputMethod" value="manual">
                             <label for="manualMethod">⌨️ Entrada manual</label>
                         </div>
-                    </div>
-                </div>
-
-                <div id="scannerContainer">
-                    <video id="scanner" playsinline muted></video>
-                    <div class="scanner-controls">
-                        <button class="btn-primary" onclick="startScanner()">Iniciar Cámara</button>
-                        <button class="btn-secondary" onclick="stopScanner()">Detener</button>
                     </div>
                 </div>
 
@@ -744,17 +730,18 @@
 
     <script>
         let productosArray = [];
-        let zxingReader = null;
-        let zxingControls = null;
         let productoEnPendiente = null;
         let pdfOriginal = null;
-        let lectorActivo = false;
+        let lectorActivo = true;
         let codigosLector = [];
-        let ultimoCodigoEscaneado = '';
-        let ultimoEscaneadoTime = 0;
 
         // Inicializar fecha actual
         document.getElementById('fechaDevolucion').valueAsDate = new Date();
+
+        // Activar lector por defecto
+        window.addEventListener('load', () => {
+            activarLector();
+        });
 
         // ===== CARGA DE PDF =====
         document.getElementById('pdfInput').addEventListener('change', async (e) => {
@@ -880,121 +867,31 @@
         document.querySelectorAll('input[name="inputMethod"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 if (e.target.value === 'manual') {
-                    document.getElementById('scannerContainer').style.display = 'none';
                     document.getElementById('lectorContainer').style.display = 'none';
                     document.getElementById('manualContainer').style.display = 'block';
                     lectorActivo = false;
-                    stopScanner();
                 } else if (e.target.value === 'lector') {
-                    document.getElementById('scannerContainer').style.display = 'none';
                     document.getElementById('manualContainer').style.display = 'none';
-                    document.getElementById('lectorContainer').style.display = 'block';
-                    document.getElementById('lectorContainer').classList.add('active');
-                    document.querySelector('.lector-status').classList.add('ready');
-                    document.getElementById('lectorStatusText').textContent = '✅ Lector listo - apunta al datamatrix';
-                    lectorActivo = true;
-                    codigosLector = [];
-                    actualizarListaLector();
-                    stopScanner();
-                    mostrarAlerta('🔍 Lector activado. Apunta los códigos datamatrix', 'info');
-                } else {
-                    document.getElementById('scannerContainer').style.display = 'block';
-                    document.getElementById('lectorContainer').style.display = 'none';
-                    document.getElementById('manualContainer').style.display = 'none';
-                    lectorActivo = false;
+                    activarLector();
                 }
             });
         });
+
+        function activarLector() {
+            document.getElementById('lectorContainer').style.display = 'block';
+            document.getElementById('lectorContainer').classList.add('active');
+            document.querySelector('.lector-status').classList.add('ready');
+            document.getElementById('lectorStatusText').textContent = '✅ Lector listo - apunta al datamatrix';
+            lectorActivo = true;
+            codigosLector = [];
+            actualizarListaLector();
+        }
 
         // Tipo de devolución
         document.getElementById('devOtro').addEventListener('change', (e) => {
             document.getElementById('otroMotivo').style.display = e.target.checked ? 'block' : 'none';
         });
 
-        async function startScanner() {
-            if (zxingReader) return;
-
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                mostrarAlerta('❌ Tu navegador no soporta cámara. Usa Safari en iOS.', 'error');
-                return;
-            }
-
-            if (typeof ZXingBrowser === 'undefined' || !ZXingBrowser.BrowserMultiFormatReader) {
-                mostrarAlerta('❌ Librería ZXing no cargada. Recarga la página.', 'error');
-                return;
-            }
-
-            try {
-                const hints = new Map();
-                const formats = [
-                    ZXing.BarcodeFormat.DATA_MATRIX,
-                    ZXing.BarcodeFormat.QR_CODE,
-                    ZXing.BarcodeFormat.CODE_128,
-                    ZXing.BarcodeFormat.CODE_39,
-                    ZXing.BarcodeFormat.EAN_13,
-                    ZXing.BarcodeFormat.EAN_8,
-                    ZXing.BarcodeFormat.PDF_417
-                ];
-                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-                hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-
-                zxingReader = new ZXingBrowser.BrowserMultiFormatReader(hints);
-                const videoEl = document.getElementById('scanner');
-                videoEl.style.display = 'block';
-
-                mostrarAlerta('🎥 Iniciando cámara...', 'info');
-
-                zxingControls = await zxingReader.decodeFromConstraints(
-                    { video: { facingMode: 'environment' } },
-                    videoEl,
-                    (result, err) => {
-                        if (result) {
-                            const texto = result.getText();
-                            const ahora = Date.now();
-                            if (texto === ultimoCodigoEscaneado && ahora - ultimoEscaneadoTime < 2000) {
-                                return;
-                            }
-                            ultimoCodigoEscaneado = texto;
-                            ultimoEscaneadoTime = ahora;
-                            mostrarAlerta('Código detectado: ' + texto, 'info');
-                            procesarCodigoEscaneado(texto);
-                        }
-                    }
-                );
-
-                mostrarAlerta('✅ Cámara activa. Apunta al datamatrix.', 'success');
-            } catch (err) {
-                let msg = '❌ Error cámara: ' + (err.message || err.name);
-                if (err.name === 'NotAllowedError') {
-                    msg = '❌ Permiso denegado. Ajustes → Safari/Chrome → Cámara → Permitir.';
-                } else if (err.name === 'NotFoundError') {
-                    msg = '❌ No se detectó cámara.';
-                } else if (err.name === 'NotReadableError') {
-                    msg = '❌ Cámara en uso por otra app.';
-                }
-                mostrarAlerta(msg, 'error');
-                zxingReader = null;
-                zxingControls = null;
-            }
-        }
-
-        function stopScanner() {
-            if (zxingControls) {
-                zxingControls.stop();
-                zxingControls = null;
-            }
-            if (zxingReader) {
-                zxingReader = null;
-            }
-            const videoEl = document.getElementById('scanner');
-            if (videoEl) {
-                videoEl.style.display = 'none';
-                if (videoEl.srcObject) {
-                    videoEl.srcObject.getTracks().forEach(t => t.stop());
-                    videoEl.srcObject = null;
-                }
-            }
-        }
 
         function procesarCodigoEscaneado(codigo) {
             const codigoNacional = codigo.substring(0, 7);
