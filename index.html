@@ -902,27 +902,29 @@
         async function buscarEnCIMA(codigoNacional, codigoCompleto) {
             try {
                 const response = await fetch(`https://cima.aemps.es/cima/rest/medicamento?cn=${codigoNacional}`);
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
                 const data = await response.json();
 
-                if (data && data.length > 0) {
-                    const medicamento = data[0];
+                if (data && data.nregistro) {
                     const lote = extraerLote(codigoCompleto);
                     const caducidad = extraerCaducidad(codigoCompleto);
 
                     productoEnPendiente = {
-                        codigo: medicamento.cn || codigoNacional,
-                        nombre: medicamento.nombre || 'Producto desconocido',
-                        pvp: medicamento.pvp || 0,
+                        codigo: codigoNacional,
+                        nombre: data.nombre || 'Producto desconocido',
+                        pvp: 0,
                         lote: lote,
                         caducidad: caducidad,
-                        registro: medicamento.nregistro || ''
+                        registro: data.nregistro || ''
                     };
 
-                    abrirModalCantidad(medicamento.nombre);
-                    mostrarAlerta('✅ Producto encontrado: ' + medicamento.nombre, 'success');
+                    abrirModalCantidad(data.nombre);
+                    mostrarAlerta('✅ Producto encontrado: ' + data.nombre, 'success');
                 } else {
-                    mostrarAlerta('⚠️ Producto no encontrado en CIMA (continuaremos con los datos escaneados)', 'error');
-                    
+                    mostrarAlerta('⚠️ CN ' + codigoNacional + ' no encontrado en CIMA', 'error');
+
                     productoEnPendiente = {
                         codigo: codigoNacional,
                         nombre: 'Producto sin datos CIMA',
@@ -930,21 +932,21 @@
                         lote: extraerLote(codigoCompleto),
                         caducidad: extraerCaducidad(codigoCompleto)
                     };
-                    
+
                     abrirModalCantidad('Producto sin datos CIMA');
                 }
             } catch (error) {
                 console.error('Error CIMA:', error);
-                mostrarAlerta('⚠️ Error conectando con CIMA, continuamos sin datos', 'error');
-                
+                mostrarAlerta('⚠️ Sin conexión CIMA (' + error.message + '). Continuamos offline.', 'error');
+
                 productoEnPendiente = {
                     codigo: codigoNacional,
-                    nombre: 'Producto (datos manuales)',
+                    nombre: 'Producto (offline)',
                     pvp: 0,
                     lote: extraerLote(codigoCompleto),
                     caducidad: extraerCaducidad(codigoCompleto)
                 };
-                
+
                 abrirModalCantidad('Producto (offline)');
             }
         }
